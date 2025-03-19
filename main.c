@@ -65,11 +65,15 @@ int main(int argc, char *argv[]) {
         }
     }
     print_welcome_message();
-    printf("Running with: ");
+    printf("Session parameters: \n");
     printf("Verbose mode: %s\n", verbose ? "ON" : "OFF");
     if (filename) {
         printf("Filename: %s\n", filename);
     }
+    if (endpoint && method) {
+        printf("Target: %s (%s)\n", endpoint, method);
+    }
+    
     if (attempts) {
         printf("Number of fuzzing attempts: %d\n", attempts);
     }
@@ -82,6 +86,7 @@ int main(int argc, char *argv[]) {
         printf("\n");
     }
 
+    printf("\nFuzzing...\n");
     int res;
     if (filename) {
         if (endpoint || method) {

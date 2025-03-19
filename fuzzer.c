@@ -150,12 +150,16 @@ int fuzz_from_file(const char *filename, int attempts, int verbose) {
                 curl_easy_setopt(curl, CURLOPT_URL, url);
                 curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
                 curl_easy_setopt(curl, CURLOPT_POST, 1L);
-                printf("Sending POST payload %d to %s: %s\n", i + 1, url, payload);
+                if (verbose) {
+                    printf("Sending POST payload %d to %s: %s\n", i + 1, url, payload);
+                }
             } else if (strcmp(method, "GET") == 0) {
                 char *full_url = build_get_url(url, payload);
                 curl_easy_setopt(curl, CURLOPT_URL, full_url);
                 curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
-                printf("Sending GET payload %d to %s: %s\n", i + 1, full_url, payload);
+                if (verbose) {
+                    printf("Sending GET payload %d to %s: %s\n", i + 1, full_url, payload);
+                }
                 free(full_url);
             }
 
