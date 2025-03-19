@@ -21,6 +21,14 @@ void print_usage() {
     printf("  -e        Specify endpoint to fuzz. Works with -m\n");
     printf("  -m        Specify method from endpoint to fuzz. Works with -e\n");
     printf("  -n        Specify a number of fuzzing attempts\n");
+    printf("Examples:\n");
+    printf("\n");
+    printf("Filename mode:\n");
+    printf("    fuzzapi -f endpoints.txt -v -n 10");
+    printf("\n");
+    printf("Single endpoint mode:\n");
+    printf("    fuzzapi -e http://example.com/api -m GET -v -n 5");
+    printf("\n");
 }
 
 
