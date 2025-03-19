@@ -89,7 +89,7 @@ File endpoints.txt:
 ### Requirements
 
 - A C compiler (e.g., gcc)
-- libcurl (install via sudo apt install libcurl4-openssl-dev on Debian/Ubuntu or equivalent).
+- libcurl (install via sudo apt install libcurl4-openssl-dev on Debian/Ubuntu, `libcurl-devel` on Fedora).
 
 ### Makefile
 
