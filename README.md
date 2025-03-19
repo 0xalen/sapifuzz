@@ -110,4 +110,6 @@ The included Makefile compiles main.c and fuzzer.c into fuzzapi:
 Feel free to submit issues or pull requests at https://github.com/0xalen/sapifuzz. Contributions to enhance functionality (e.g., more HTTP methods, payload customization) are welcome!
 
 
+## License
+This project is licensed under the MIT License. See below for details or refer to the LICENSE file in the repository.
 
