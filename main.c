@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+#include "fuzzer.h"
 
 
 void print_welcome_message() {
@@ -17,17 +18,18 @@ void print_usage() {
     printf("  -h        Show this help message\n");
     printf("  -v        Enable verbose mode\n");
     printf("  -f        Specify input filename with list of endpoints\n");
+    printf("  -e        Specify endpoint to fuzz. Works with -m\n");
+    printf("  -m        Specify method from endpoint to fuzz. Works with -e\n");
     printf("  -n        Specify a number of fuzzing attempts\n");
 }
-
-
-extern int fuzz(const char *filename, int attempts, int verbose);
 
 
 int main(int argc, char *argv[]) {
     int verbose = 0;
     char *filename = NULL;
     int attempts = 0;
+    char *endpoint = NULL;
+    char *method = NULL;
     
     if (argc == 1) {
         print_usage();
@@ -35,7 +37,7 @@ int main(int argc, char *argv[]) {
     }
 
     int opt;
-    while ((opt = getopt(argc, argv, "hvf:n:")) != -1) {
+    while ((opt = getopt(argc, argv, "hvf:e:m:n:")) != -1) {
         switch (opt) {
             case 'h':
                 print_usage();
@@ -45,6 +47,12 @@ int main(int argc, char *argv[]) {
                 break;
             case 'f':
                 filename = optarg;
+                break;
+            case 'e':
+                endpoint = optarg;
+                break;
+            case 'm':
+                method = optarg;
                 break;
             case 'n':
                 attempts = atoi(optarg);
@@ -74,8 +82,20 @@ int main(int argc, char *argv[]) {
         printf("\n");
     }
 
-
-    int res = fuzz(filename, attempts, verbose);
+    int res;
+    if (filename) {
+        if (endpoint || method) {
+            printf("Warning: -f cannot be used with -e or -m. Ignoring -e and -m\n");
+        }
+        res = fuzz_from_file(filename, attempts, verbose);
+    } else if (endpoint && method) {
+        res = fuzz_endpoint(endpoint, method, attempts, verbose);
+    } else {
+        printf("Error: Must provide either -f filename or both -e endpoint and -m method\n");
+        print_usage();
+        return 1;
+    }
+    
     if (res != 0) {
         return 1;
     }

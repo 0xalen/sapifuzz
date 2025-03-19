@@ -11,6 +11,10 @@ typedef struct {
     char *method; // "GET" or "POST"
 } Endpoint;
 
+
+Endpoint *load_endpoints(const char *filename, int *num_endpoints);
+void free_endpoints(Endpoint *endpoints, int num_endpoints);
+
 // Callback to handle API response
 size_t write_callback(void *contents, size_t size, size_t nmemb, void *userp) {
     size_t realsize = size * nmemb;
@@ -31,9 +35,9 @@ char *generate_payload(size_t length) {
 
 // Build URL with query string for GET requests
 char *build_get_url(const char *base_url, const char *payload) {
-    size_t url_len = strlen(base_url) + strlen(payload) + 6; // "?data=" + payload + null
+    size_t url_len = strlen(base_url) + strlen(payload) + 1; //  payload + null terminator '\0'
     char *full_url = malloc(url_len);
-    snprintf(full_url, url_len, "%s?data=%s", base_url, payload);
+    snprintf(full_url, url_len, "%s%s", base_url, payload);
     return full_url;
 }
 
@@ -79,7 +83,7 @@ Endpoint *load_endpoints(const char *filename, int *num_endpoints) {
             endpoints[index].method = strdup(method);
 
             if (!endpoints[index].url || !endpoints[index].method) {
-                fprintf(stderr, "strdup failed\n");
+                fprintf(stderr, "Failed to load endpoints into memory\n");
                 free_endpoints(endpoints, index + 1);
                 fclose(fp);
                 *num_endpoints = 0;
@@ -110,25 +114,20 @@ void free_endpoints(Endpoint *endpoints, int num_endpoints) {
 }
 
 
-int fuzz(const char *filename, int attempts, int verbose) {
+int fuzz_from_file(const char *filename, int attempts, int verbose) {
     CURL *curl;
     CURLcode res;
     srand(time(NULL));
-
     
     int num_endpoints;
     Endpoint *endpoints = NULL;
 
-    if (filename) {
-        endpoints = load_endpoints(filename, &num_endpoints);
-        if (!endpoints) {
-            fprintf(stderr, "No valid endpoints loaded from %s, exiting\n", filename);
-            return 1;
-        }
-    } else {
-        printf("Filename must be provided");
+    endpoints = load_endpoints(filename, &num_endpoints);
+    if (!endpoints) {
+        fprintf(stderr, "No valid endpoints loaded from %s, exiting\n", filename);
         return 1;
     }
+    
 
     int num_attempts = attempts > 0 ? attempts : 25;
 
@@ -178,3 +177,59 @@ int fuzz(const char *filename, int attempts, int verbose) {
     return 0;
 }
 
+int fuzz_endpoint(const char *endpoint, const char *method, int attempts, int verbose) {
+    CURL *curl;
+    CURLcode res;
+    srand(time(NULL));
+
+    int num_attempts = attempts > 0 ? attempts : 25;
+
+    curl_global_init(CURL_GLOBAL_ALL);
+    curl = curl_easy_init();
+    if (!curl) {
+        fprintf(stderr, "Curl init failed\n");
+        return 1;
+    }
+
+    for (int i = 0; i < num_attempts; i++) {
+        size_t len = (rand() % 1000) + 1;
+        char *payload = generate_payload(len);
+
+        if (strcmp(method, "POST") == 0) {
+            curl_easy_setopt(curl, CURLOPT_URL, endpoint);
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload);
+            curl_easy_setopt(curl, CURLOPT_POST, 1L);
+            if (verbose) {
+                printf("Sending POST payload %d to %s: %s\n", i + 1, endpoint, payload);
+            }
+        } else if (strcmp(method, "GET") == 0) {
+            char *full_url = build_get_url(endpoint, payload);
+            curl_easy_setopt(curl, CURLOPT_URL, full_url);
+            curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
+            if (verbose) {
+                printf("Sending GET payload %d to %s: %s\n", i + 1, full_url, payload);
+            }
+            free(full_url);
+        } else {
+            fprintf(stderr, "Unsupported method: %s\n", method);
+            free(payload);
+            curl_easy_cleanup(curl);
+            curl_global_cleanup();
+            return 1;
+        }
+
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
+
+        res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            fprintf(stderr, "Request failed for %s: %s\n", endpoint, curl_easy_strerror(res));
+        }
+
+        free(payload);
+    }
+
+    curl_easy_cleanup(curl);
+    curl_global_cleanup();
+    return 0;
+}
