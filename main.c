@@ -75,7 +75,11 @@ int main(int argc, char *argv[]) {
     }
 
 
-    fuzz(filename, attempts, verbose);
+    int res = fuzz(filename, attempts, verbose);
+    if (res != 0) {
+        return 1;
+    }
+
 
     return 0;
 }

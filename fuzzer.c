@@ -78,24 +78,20 @@ Endpoint *load_endpoints(const char *filename, int *num_endpoints) {
         return NULL;
     }
 
-    rewind(fp); // Go back to start of file
+    rewind(fp); 
     char buffer[1024];
     int index = 0;
 
     while (fgets(buffer, sizeof(buffer), fp)) {
-        // Remove trailing newline
         buffer[strcspn(buffer, "\n")] = 0;
 
-        // Split by comma
         char *url = strtok(buffer, ",");
         char *method = strtok(NULL, " ");
 
         if (url && method) {
-            // Trim whitespace
             while (*url == ' ') url++;
             while (*method == ' ') method++;
 
-            // Duplicate strings for dynamic allocation
             endpoints[index].url = strdup(url);
             endpoints[index].method = strdup(method);
             index++;
@@ -107,7 +103,6 @@ Endpoint *load_endpoints(const char *filename, int *num_endpoints) {
     return endpoints;
 }
 
-// Function to free endpoints array
 void free_endpoints(Endpoint *endpoints, int num_endpoints) {
     for (int i = 0; i < num_endpoints; i++) {
         free(endpoints[i].url);
@@ -122,16 +117,23 @@ int fuzz(const char *filename, int attempts, int verbose) {
     CURLcode res;
     srand(time(NULL));
 
-    // List of endpoints with methods (replace with your actual endpoints)
-    Endpoint endpoints[] = {
-        {"http://example.com/api/endpoint1", "POST"},
-        {"http://example.com/api/endpoint2", "GET"},
-        {"http://example.com/api/endpoint3", "POST"},
-        {"http://example.com/api/endpoint4", "GET"}
-    };
-    int num_endpoints = sizeof(endpoints) / sizeof(endpoints[0]);
+    
+    int num_endpoints;
+    Endpoint *endpoints = NULL;
 
-    // Initialize curl
+    if (filename) {
+        endpoints = load_endpoints(filename, &num_endpoints);
+        if (!endpoints) {
+            fprintf(stderr, "No valid endpoints loaded from %s, exiting\n", filename);
+            return 1;
+        }
+    } else {
+        printf("Filename must be provided");
+        return 1;
+    }
+
+    int num_attempts = attempts > 0 ? attempts : 25;
+
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
     if (!curl) {
@@ -139,14 +141,11 @@ int fuzz(const char *filename, int attempts, int verbose) {
         return 1;
     }
 
-    // Fuzzing loop over endpoints
     for (int e = 0; e < num_endpoints; e++) {
         const char *url = endpoints[e].url;
         const char *method = endpoints[e].method;
 
-        // Run 25 iterations per endpoint
-        for (int i = 0; i < 25; i++) {
-            // Generate random payload (vary length between 1 and 1000)
+        for (int i = 0; i < num_attempts; i++) {
             size_t len = (rand() % 1000) + 1;
             char *payload = generate_payload(len);
 
@@ -163,11 +162,9 @@ int fuzz(const char *filename, int attempts, int verbose) {
                 free(full_url);
             }
 
-            // Common curl options
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL);
 
-            // Perform request
             res = curl_easy_perform(curl);
             if (res != CURLE_OK) {
                 fprintf(stderr, "Request failed for %s: %s\n", url, curl_easy_strerror(res));
@@ -177,9 +174,9 @@ int fuzz(const char *filename, int attempts, int verbose) {
         }
     }
 
-    // Cleanup
     curl_easy_cleanup(curl);
     curl_global_cleanup();
+    free_endpoints(endpoints, num_endpoints);
     return 0;
 }
 

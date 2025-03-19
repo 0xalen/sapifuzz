@@ -15,7 +15,7 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
 
-%.o: %.c
+%.o: %.c fuzzer.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
