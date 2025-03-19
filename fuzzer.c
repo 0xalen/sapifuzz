@@ -7,8 +7,8 @@
 
 // Structure to hold endpoint and method
 typedef struct {
-    const char *url;
-    const char *method; // "GET" or "POST"
+    char *url;
+    char *method; // "GET" or "POST"
 } Endpoint;
 
 // Callback to handle API response
@@ -37,22 +37,6 @@ char *build_get_url(const char *base_url, const char *payload) {
     return full_url;
 }
 
-// Function to count lines in the file
-int count_lines(const char *filename) {
-    FILE *fp = fopen(filename, "r");
-    if (!fp) {
-        fprintf(stderr, "Failed to open file: %s\n", filename);
-        return -1;
-    }
-    
-    int lines = 0;
-    char buffer[1024];
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        lines++;
-    }
-    fclose(fp);
-    return lines;
-}
 
 // Function to load endpoints from file
 Endpoint *load_endpoints(const char *filename, int *num_endpoints) {
@@ -63,24 +47,10 @@ Endpoint *load_endpoints(const char *filename, int *num_endpoints) {
         return NULL;
     }
 
-    int lines = count_lines(filename);
-    if (lines <= 0) {
-        fclose(fp);
-        *num_endpoints = 0;
-        return NULL;
-    }
-
-    Endpoint *endpoints = malloc(lines * sizeof(Endpoint));
-    if (!endpoints) {
-        fprintf(stderr, "Memory allocation failed\n");
-        fclose(fp);
-        *num_endpoints = 0;
-        return NULL;
-    }
-
-    rewind(fp); 
+    Endpoint *endpoints = NULL;
+    int capacity = 0;  // Current allocated size of endpoints array
+    int index = 0;     // Number of endpoints actually used
     char buffer[1024];
-    int index = 0;
 
     while (fgets(buffer, sizeof(buffer), fp)) {
         buffer[strcspn(buffer, "\n")] = 0;
@@ -89,17 +59,45 @@ Endpoint *load_endpoints(const char *filename, int *num_endpoints) {
         char *method = strtok(NULL, " ");
 
         if (url && method) {
+            if (index >= capacity) {
+                capacity = capacity == 0 ? 4 : capacity * 2;
+                Endpoint *temp = realloc(endpoints, capacity * sizeof(Endpoint));
+                if (!temp) {
+                    fprintf(stderr, "Memory reallocation failed\n");
+                    free_endpoints(endpoints, index);
+                    fclose(fp);
+                    *num_endpoints = 0;
+                    return NULL;
+                }
+                endpoints = temp;
+            }
+
             while (*url == ' ') url++;
             while (*method == ' ') method++;
 
             endpoints[index].url = strdup(url);
             endpoints[index].method = strdup(method);
+
+            if (!endpoints[index].url || !endpoints[index].method) {
+                fprintf(stderr, "strdup failed\n");
+                free_endpoints(endpoints, index + 1);
+                fclose(fp);
+                *num_endpoints = 0;
+                return NULL;
+            }
+
             index++;
         }
     }
 
     fclose(fp);
     *num_endpoints = index;
+
+    if (index < capacity) {
+        Endpoint *temp = realloc(endpoints, index * sizeof(Endpoint));
+        if (temp) endpoints = temp;
+    }
+
     return endpoints;
 }
 
